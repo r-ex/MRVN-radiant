@@ -154,15 +154,18 @@ void WriteR5BSPFile(const char* filename) {
         header.lumps[R5_LUMP_GAME_LUMP].offset = ftell(file);
         header.lumps[R5_LUMP_GAME_LUMP].length = 40;
 
-        ApexLegends::GameLump_Stub_t gameLump_stub;
-        SafeWrite(file, &gameLump_stub.version, 4);
-        memcpy(gameLump_stub.magic, "prps", 4);
-        SafeWrite(file, &gameLump_stub.magic, 4);
-        SafeWrite(file, &gameLump_stub.const0, 4);
-        gameLump_stub.offset = LittleLong(ftell(file) + 8);
-        SafeWrite(file, &gameLump_stub.offset, 4);
-        SafeWrite(file, &gameLump_stub.length, 4);
-        SafeWrite(file, &gameLump_stub.zeros, 20);
+        ApexLegends::dgamelumpheader_t gamelumphdr;
+        SafeWrite(file, &gamelumphdr.lumpCount, 4);
+
+        ApexLegends::dgamelump_t gamelump;
+        memcpy(gamelump.magic, "prps", 4);
+        SafeWrite(file, &gamelump.magic, 4);
+        SafeWrite(file, &gamelump.flags, 2);
+        SafeWrite(file, &gamelump.version, 2);
+        gamelump.fileofs = LittleLong(ftell(file) + 8);
+        SafeWrite(file, &gamelump.fileofs, 4);
+        SafeWrite(file, &gamelump.filelen, 4);
+        SafeWrite(file, &gamelump.zeros, 20);
     }
     AddLump(file, header.lumps[R5_LUMP_UNKNOWN_37],		        	ApexLegends::Bsp::unknown25_stub);
     AddLump(file, header.lumps[R5_LUMP_UNKNOWN_38],		        	ApexLegends::Bsp::unknown26_stub);
@@ -361,20 +364,20 @@ void ApexLegends::EmitMeshes( const entity_t &e ) {
 				uint32_t normalIndex = 0;
 
 				if ( mesh.shaderInfo->surfaceFlags & S_VERTEX_LIT_BUMP ) {
-					vertexIndex = ApexLegends::Bsp::vertexLitBumpVertices.at( j ).vertexIndex;
-					normalIndex = ApexLegends::Bsp::vertexLitBumpVertices.at( j ).normalIndex;
+					vertexIndex = ApexLegends::Bsp::vertexLitBumpVertices.at( j ).posIdx;
+					normalIndex = ApexLegends::Bsp::vertexLitBumpVertices.at( j ).nmlIdx;
 				}
 				else if ( mesh.shaderInfo->surfaceFlags & S_VERTEX_UNLIT) {
-					vertexIndex = ApexLegends::Bsp::vertexUnlitVertices.at( j ).vertexIndex;
-					normalIndex = ApexLegends::Bsp::vertexUnlitVertices.at( j ).normalIndex;
+					vertexIndex = ApexLegends::Bsp::vertexUnlitVertices.at( j ).posIdx;
+					normalIndex = ApexLegends::Bsp::vertexUnlitVertices.at( j ).nmlIdx;
 				}
 				else if ( mesh.shaderInfo->surfaceFlags & S_VERTEX_UNLIT_TS ) {
-					vertexIndex = ApexLegends::Bsp::vertexUnlitTSVertices.at( j ).vertexIndex;
-					normalIndex = ApexLegends::Bsp::vertexUnlitTSVertices.at( j ).normalIndex;
+					vertexIndex = ApexLegends::Bsp::vertexUnlitTSVertices.at( j ).posIdx;
+					normalIndex = ApexLegends::Bsp::vertexUnlitTSVertices.at( j ).nmlIdx;
 				}
 				else {
-					vertexIndex = ApexLegends::Bsp::vertexLitFlatVertices.at( j ).vertexIndex;
-					normalIndex = ApexLegends::Bsp::vertexLitFlatVertices.at( j ).normalIndex;
+					vertexIndex = ApexLegends::Bsp::vertexLitFlatVertices.at( j ).posIdx;
+					normalIndex = ApexLegends::Bsp::vertexLitFlatVertices.at( j ).nmlIdx;
 				}
 
 				if ( !VectorCompare( Titanfall::Bsp::vertices.at( vertexIndex ), mesh.vertices.at( triangle ).xyz ) )
@@ -417,7 +420,7 @@ uint32_t ApexLegends::EmitTextureData( shaderInfo_t shader ) {
         for ( std::size_t i = 0; i < ApexLegends::Bsp::textureData.size(); i++ ) {
 			ApexLegends::TextureData_t &td = ApexLegends::Bsp::textureData.at( i );
 
-			if ( td.surfaceIndex == index )
+			if ( td.nameStringTableOffset == index )
 				return i;
 		}
 	}
@@ -432,9 +435,9 @@ uint32_t ApexLegends::EmitTextureData( shaderInfo_t shader ) {
 
 
 	ApexLegends::TextureData_t &td = ApexLegends::Bsp::textureData.emplace_back();
-    td.surfaceIndex = Titanfall::Bsp::textureDataData.size();
-	td.sizeX = shader.shaderImage->width;
-	td.sizeY = shader.shaderImage->height;
+    td.nameStringTableOffset = Titanfall::Bsp::textureDataData.size();
+	td.width = shader.shaderImage->width;
+	td.height = shader.shaderImage->height;
 	td.flags = shader.surfaceFlags;
 
     Titanfall::Bsp::textureDataData.insert( Titanfall::Bsp::textureDataData.end(), str.begin(), str.end() );
@@ -470,9 +473,9 @@ uint16_t ApexLegends::EmitMaterialSort( uint32_t index ) {
 */
 void ApexLegends::EmitVertexUnlit( Shared::Vertex_t &vertex ) {
     ApexLegends::VertexUnlit_t& ul = ApexLegends::Bsp::vertexUnlitVertices.emplace_back();
-    ul.vertexIndex = Titanfall::EmitVertex(vertex.xyz);
-    ul.normalIndex = Titanfall::EmitVertexNormal(vertex.normal);
-    ul.uv0 = vertex.st;
+    ul.posIdx = Titanfall::EmitVertex(vertex.xyz);
+    ul.nmlIdx = Titanfall::EmitVertexNormal(vertex.normal);
+    ul.texUV = vertex.st;
 }
 
 /*
@@ -481,9 +484,9 @@ void ApexLegends::EmitVertexUnlit( Shared::Vertex_t &vertex ) {
 */
 void ApexLegends::EmitVertexLitFlat( Shared::Vertex_t &vertex ) {
     ApexLegends::VertexLitFlat_t& lf = ApexLegends::Bsp::vertexLitFlatVertices.emplace_back();
-    lf.vertexIndex = Titanfall::EmitVertex(vertex.xyz);
-    lf.normalIndex = Titanfall::EmitVertexNormal(vertex.normal);
-    lf.uv0 = vertex.st;
+    lf.posIdx = Titanfall::EmitVertex(vertex.xyz);
+    lf.nmlIdx = Titanfall::EmitVertexNormal(vertex.normal);
+    lf.texUV = vertex.st;
 }
 
 /*
@@ -492,9 +495,9 @@ void ApexLegends::EmitVertexLitFlat( Shared::Vertex_t &vertex ) {
 */
 void ApexLegends::EmitVertexLitBump( Shared::Vertex_t &vertex ) {
     ApexLegends::VertexLitBump_t& lv = ApexLegends::Bsp::vertexLitBumpVertices.emplace_back();
-    lv.vertexIndex = Titanfall::EmitVertex(vertex.xyz);
-    lv.normalIndex = Titanfall::EmitVertexNormal(vertex.normal);
-    lv.uv0 = vertex.st;
+    lv.posIdx = Titanfall::EmitVertex(vertex.xyz);
+    lv.nmlIdx = Titanfall::EmitVertexNormal(vertex.normal);
+    lv.texUV = vertex.st;
     lv.negativeOne = -1;
 }
 
@@ -504,9 +507,9 @@ void ApexLegends::EmitVertexLitBump( Shared::Vertex_t &vertex ) {
 */
 void ApexLegends::EmitVertexUnlitTS( Shared::Vertex_t &vertex ) {
     ApexLegends::VertexUnlitTS_t& ul = ApexLegends::Bsp::vertexUnlitTSVertices.emplace_back();
-    ul.vertexIndex = Titanfall::EmitVertex(vertex.xyz);
-    ul.normalIndex = Titanfall::EmitVertexNormal(vertex.normal);
-    ul.uv0 = vertex.st;
+    ul.posIdx = Titanfall::EmitVertex(vertex.xyz);
+    ul.nmlIdx = Titanfall::EmitVertexNormal(vertex.normal);
+    ul.texUV = vertex.st;
 }
 
 /*

@@ -33,33 +33,34 @@ namespace ApexLegends {
 
 	// 0x02
 	struct TextureData_t {
-		uint32_t surfaceIndex;
-		uint32_t sizeX;
-		uint32_t sizeY;
-		uint32_t flags;
+		// was nameStringTableID pre-r5 but was changed to an offset instead of index
+		int nameStringTableOffset;
+		int width;
+		int height;
+		int flags;
 	};
 
 	// 0x47
 	struct VertexUnlit_t {
-		uint32_t vertexIndex;
-		uint32_t normalIndex;
-		Vector2 uv0;
-		int32_t negativeOne;
+		int posIdx;
+		int nmlIdx;
+		Vector2 texUV;
+		int32_t negativeOne; // most likely vertex color - color32
 	};
 
 	// 0x48
 	struct VertexLitFlat_t {
-		uint32_t vertexIndex;
-		uint32_t normalIndex;
-		Vector2 uv0;
+		int posIdx;
+		int nmlIdx;
+		Vector2 texUV;
 		int32_t unknown0;
 	};
 
 	// 0x49
 	struct VertexLitBump_t {
-		uint32_t vertexIndex;
-		uint32_t normalIndex;
-		Vector2 uv0;
+		int posIdx;
+		int nmlIdx;
+		Vector2 texUV;
 		int32_t negativeOne;
 		Vector2 uv1;
 		uint8_t color[4];
@@ -67,18 +68,19 @@ namespace ApexLegends {
 
 	// 0x4A
 	struct VertexUnlitTS_t {
-		uint32_t vertexIndex;
-		uint32_t normalIndex;
-		Vector2 uv0;
+		int posIdx;
+		int nmlIdx;
+		Vector2 texUV;
 		int32_t unknown0;
 		int32_t unknown1;
 	};
 
 	// 0x4B
-    struct VertexBlinnPhong_t {
-		uint32_t vertexIndex;
-		uint32_t normalIndex;
-		Vector2 uv0;
+	// does not exist in r5
+  struct VertexBlinnPhong_t {
+		int posIdx;
+		int nmlIdx;
+		Vector2 texUV;
 		Vector2 uv1;
 	};
 
@@ -112,6 +114,16 @@ namespace ApexLegends {
 		uint32_t objRefFlags : 8;
 	};
 
+
+	// r1 struct:
+	// struct dlevel_info_t
+	// {
+	// 	int firstDecalMeshIdx;
+	// 	int firstTransMeshIdx;
+	// 	int firstSkyMeshIdx;
+	// 	int numStaticProps;
+	// };
+
 	// 0x7B
 	struct LevelInfo_t {
 		int32_t unk0;
@@ -123,15 +135,18 @@ namespace ApexLegends {
 		int32_t modelCount;
 	};
 
+	struct dgamelumpheader_t {
+		int lumpCount = 1;
+	};
 
-	// GameLump Stub
-	struct GameLump_Stub_t {
-		uint32_t version = 1;
+	struct dgamelump_t
+	{
 		char magic[4];
-		uint32_t const0 = 3080192;
-		uint32_t offset;
-		uint32_t length = 20;
-		uint32_t zeros[5] = { 0,0,0,0,0 };
+		unsigned short flags = 0;
+		unsigned short version = 47;
+		int fileofs;
+		int filelen = 20;
+		uint32_t zeros[5] = { 0,0,0,0,0 }; // these are not actually part of the struct so idrk why they are here
 	};
 
 	namespace Bsp {
